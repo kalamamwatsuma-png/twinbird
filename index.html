@@ -5,20 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BudgetBook — Emmanuel Kalama</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     :root {
-      --ink:       #0f0f0f;
-      --paper:     #faf8f3;
-      --cream:     #f2ede3;
-      --gold:      #c9922a;
-      --gold-lt:   #e8b84b;
-      --green:     #2e6b4f;
-      --green-lt:  #d6ede2;
-      --red:       #b03a2e;
-      --red-lt:    #fde8e6;
-      --muted:     #8a8278;
-      --border:    #ddd7cc;
-      --shadow:    0 4px 24px rgba(0,0,0,.08);
+      --ink:     #0f0f0f;
+      --paper:   #faf8f3;
+      --cream:   #f2ede3;
+      --gold:    #c9922a;
+      --gold-lt: #e8b84b;
+      --green:   #2e6b4f;
+      --red:     #b03a2e;
+      --muted:   #8a8278;
+      --border:  #ddd7cc;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -41,14 +40,12 @@
       border-radius: 20px;
       padding: 3rem 2.5rem;
       width: 100%; max-width: 420px;
-      box-shadow: 0 24px 80px rgba(0,0,0,.4);
+      box-shadow: 0 24px 80px rgba(0,0,0,.45);
     }
     .auth-logo {
       font-family: 'Playfair Display', serif;
-      font-size: 2rem;
-      font-weight: 900;
-      color: var(--gold);
-      letter-spacing: -1px;
+      font-size: 2rem; font-weight: 900;
+      color: var(--gold); letter-spacing: -1px;
       margin-bottom: .25rem;
     }
     .auth-sub { font-size: .85rem; color: var(--muted); margin-bottom: 2.2rem; }
@@ -81,29 +78,55 @@
     /* ── APP SHELL ── */
     #app { display: none; min-height: 100vh; }
 
+    /* ── HEADER ── */
     header {
       background: var(--ink);
       color: #fff;
-      padding: 1.2rem 2rem;
+      padding: 1rem 2rem;
       display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem;
       position: sticky; top: 0; z-index: 100;
     }
     .header-brand {
       font-family: 'Playfair Display', serif;
       font-size: 1.4rem; font-weight: 900;
       color: var(--gold-lt); letter-spacing: -.5px;
+      white-space: nowrap;
     }
-    .header-right { display: flex; align-items: center; gap: 1rem; }
-    .header-user { font-size: .83rem; color: #aaa; }
+    .header-right {
+      display: flex; align-items: center;
+      gap: .75rem; flex-wrap: nowrap; min-width: 0;
+    }
+    .header-user {
+      font-size: .82rem; color: #aaa;
+      white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; min-width: 0;
+    }
     #btn-logout {
       background: none; border: 1.5px solid #444; color: #ccc;
-      padding: .4rem .9rem; border-radius: 8px;
-      font-family: inherit; font-size: .8rem; cursor: pointer;
+      padding: .38rem .85rem; border-radius: 8px;
+      font-family: inherit; font-size: .78rem; cursor: pointer;
+      white-space: nowrap; flex-shrink: 0;
       transition: border-color .2s, color .2s;
     }
     #btn-logout:hover { border-color: var(--gold); color: var(--gold-lt); }
 
+    /* Mobile header: stack brand above user row */
+    @media (max-width: 500px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: .9rem 1.2rem;
+        gap: .55rem;
+      }
+      .header-brand { font-size: 1.25rem; }
+      .header-right { width: 100%; justify-content: space-between; }
+      .header-user  { font-size: .8rem; }
+    }
+
+    /* ── MAIN ── */
     .app-main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    @media(max-width:500px){ .app-main { padding: 1.2rem 1rem; } }
 
     /* ── DATE STRIP ── */
     .date-strip {
@@ -112,12 +135,12 @@
     }
     .date-heading {
       font-family: 'Playfair Display', serif;
-      font-size: 1.6rem; font-weight: 700;
+      font-size: 1.5rem; font-weight: 700;
     }
     .date-heading span { color: var(--gold); }
     #date-picker {
       padding: .5rem .9rem; border: 1.5px solid var(--border);
-      border-radius: 9px; font-family: inherit; font-size: .9rem;
+      border-radius: 9px; font-family: inherit; font-size: .88rem;
       background: var(--cream); color: var(--ink); outline: none;
       cursor: pointer; transition: border .2s;
     }
@@ -126,95 +149,127 @@
     /* ── SUMMARY CARDS ── */
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
       gap: 1rem; margin-bottom: 2rem;
     }
     .sum-card {
       background: var(--cream); border-radius: 14px;
-      padding: 1.3rem 1.5rem;
+      padding: 1.2rem 1.4rem;
       border: 1.5px solid var(--border);
     }
     .sum-card.highlight { background: var(--ink); border-color: var(--ink); }
     .sum-label {
-      font-size: .73rem; letter-spacing: .07em;
+      font-size: .72rem; letter-spacing: .07em;
       text-transform: uppercase; font-weight: 600;
-      color: var(--muted); margin-bottom: .4rem;
+      color: var(--muted); margin-bottom: .35rem;
     }
     .sum-card.highlight .sum-label { color: #888; }
     .sum-value {
       font-family: 'Playfair Display', serif;
-      font-size: 1.7rem; font-weight: 700; color: var(--ink);
+      font-size: 1.6rem; font-weight: 700; color: var(--ink);
     }
     .sum-card.highlight .sum-value { color: var(--gold-lt); }
-    .sum-value.neg { color: var(--red); }
 
-    /* ── ADD EXPENSE ── */
+    /* ── SECTION TITLE ── */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem; border-bottom: 2px solid var(--border);
+      padding-bottom: .5rem; gap: .6rem; flex-wrap: wrap;
+    }
     .section-title {
       font-family: 'Playfair Display', serif;
-      font-size: 1.15rem; font-weight: 700;
-      margin-bottom: 1rem; border-bottom: 2px solid var(--border);
-      padding-bottom: .5rem;
+      font-size: 1.12rem; font-weight: 700;
     }
+
+    /* ── EXPORT BUTTON ── */
+    .btn-export {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .38rem .9rem;
+      background: #1d6f42; color: #fff;
+      border: none; border-radius: 8px;
+      font-family: inherit; font-size: .78rem; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
+      transition: background .2s, transform .1s;
+    }
+    .btn-export:hover  { background: #155233; }
+    .btn-export:active { transform: scale(.97); }
+    .btn-export svg { width: 14px; height: 14px; fill: currentColor; flex-shrink: 0; }
+
+    /* ── ADD EXPENSE ── */
     .add-form {
       background: var(--cream); border: 1.5px solid var(--border);
-      border-radius: 16px; padding: 1.5rem;
+      border-radius: 16px; padding: 1.4rem;
       margin-bottom: 2rem;
     }
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr 1.4fr auto;
-      gap: .8rem; align-items: end;
+      gap: .75rem; align-items: end;
     }
     @media(max-width:760px){
       .form-grid { grid-template-columns: 1fr 1fr; }
       .form-grid .full { grid-column: 1/-1; }
     }
     .field label {
-      display: block; font-size: .73rem; font-weight: 600;
+      display: block; font-size: .72rem; font-weight: 600;
       text-transform: uppercase; letter-spacing: .06em;
-      color: var(--muted); margin-bottom: .35rem;
+      color: var(--muted); margin-bottom: .32rem;
     }
-    .field input, .field select, .field textarea {
-      width: 100%; padding: .65rem .9rem;
+    .field input, .field select {
+      width: 100%; padding: .62rem .9rem;
       border: 1.5px solid var(--border); border-radius: 9px;
-      font-family: inherit; font-size: .9rem;
+      font-family: inherit; font-size: .88rem;
       background: var(--paper); color: var(--ink);
       outline: none; transition: border .2s;
     }
-    .field input:focus, .field select:focus, .field textarea:focus {
-      border-color: var(--gold);
-    }
+    .field input:focus, .field select:focus { border-color: var(--gold); }
     .btn-add {
-      padding: .67rem 1.4rem;
+      padding: .64rem 1.3rem;
       background: var(--green); color: #fff;
       border: none; border-radius: 9px;
-      font-family: inherit; font-size: .9rem; font-weight: 600;
+      font-family: inherit; font-size: .88rem; font-weight: 600;
       cursor: pointer; white-space: nowrap;
       transition: background .2s;
     }
     .btn-add:hover { background: #1f4f37; }
 
-    /* ── EXPENSE TABLE ── */
-    .table-wrap {
-      background: var(--cream); border: 1.5px solid var(--border);
-      border-radius: 16px; overflow: hidden;
+    /* ── SCROLLABLE TABLE WRAPPER ── */
+    .table-outer {
       margin-bottom: 2rem;
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;           /* keep rounded corners */
     }
-    table { width: 100%; border-collapse: collapse; }
+    .table-scroll {
+      max-height: 340px;
+      overflow-y: auto;
+      overflow-x: auto;
+      border-radius: 0 0 14px 14px;
+    }
+    /* Thin custom scrollbar */
+    .table-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    .table-scroll::-webkit-scrollbar-track { background: var(--cream); }
+    .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    table { width: 100%; border-collapse: collapse; min-width: 520px; }
+
+    /* Sticky thead inside scroll container */
+    thead { position: sticky; top: 0; z-index: 2; }
     thead tr { background: var(--ink); }
     thead th {
-      padding: .85rem 1rem; text-align: left;
-      font-size: .73rem; font-weight: 600;
+      padding: .82rem 1rem; text-align: left;
+      font-size: .72rem; font-weight: 600;
       letter-spacing: .07em; text-transform: uppercase;
       color: #bbb;
     }
     tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: #ede8df; }
-    tbody td { padding: .8rem 1rem; font-size: .9rem; }
+    tbody td { padding: .78rem 1rem; font-size: .88rem; }
+
     .cat-badge {
-      display: inline-block; padding: .2rem .65rem;
-      border-radius: 20px; font-size: .75rem; font-weight: 600;
+      display: inline-block; padding: .18rem .6rem;
+      border-radius: 20px; font-size: .74rem; font-weight: 600;
     }
     .btn-del {
       background: none; border: none; cursor: pointer;
@@ -223,41 +278,53 @@
     }
     .btn-del:hover { color: var(--red); }
     .empty-state {
-      text-align: center; padding: 3rem 1rem;
-      color: var(--muted); font-size: .9rem;
+      text-align: center; padding: 2.5rem 1rem;
+      color: var(--muted); font-size: .88rem;
     }
-    .empty-state .icon { font-size: 2.5rem; margin-bottom: .5rem; }
+    .empty-state .icon { font-size: 2.2rem; margin-bottom: .4rem; }
 
     /* ── CATEGORY COLOURS ── */
-    .cat-food        { background:#fef3cd; color:#7a5c00; }
-    .cat-transport   { background:#dce8fd; color:#1a4d9a; }
-    .cat-utilities   { background:#e0f7f0; color:#0a5740; }
-    .cat-health      { background:#fde8e6; color:#8b2319; }
-    .cat-shopping    { background:#f3e8fd; color:#5a1fa0; }
-    .cat-education   { background:#fff0e0; color:#7a3500; }
+    .cat-food          { background:#fef3cd; color:#7a5c00; }
+    .cat-transport     { background:#dce8fd; color:#1a4d9a; }
+    .cat-utilities     { background:#e0f7f0; color:#0a5740; }
+    .cat-health        { background:#fde8e6; color:#8b2319; }
+    .cat-shopping      { background:#f3e8fd; color:#5a1fa0; }
+    .cat-education     { background:#fff0e0; color:#7a3500; }
     .cat-entertainment { background:#fce4f1; color:#7a1050; }
-    .cat-rent        { background:#e6e6e6; color:#333; }
-    .cat-savings     { background:#d6ede2; color:#1a4d30; }
-    .cat-other       { background:#ece9e3; color:#4a4540; }
+    .cat-rent          { background:#e6e6e6; color:#333;    }
+    .cat-savings       { background:#d6ede2; color:#1a4d30; }
+    .cat-other         { background:#ece9e3; color:#4a4540; }
 
-    /* ── CHART ── */
+    /* ── BAR CHART ── */
     .chart-section { margin-bottom: 2rem; }
-    .bar-chart { display: flex; flex-direction: column; gap: .55rem; }
-    .bar-row { display: flex; align-items: center; gap: .8rem; }
-    .bar-label { width: 120px; font-size: .82rem; flex-shrink: 0; text-align: right; color: var(--ink); }
-    .bar-track { flex: 1; background: var(--border); border-radius: 999px; height: 14px; overflow: hidden; }
-    .bar-fill { height: 100%; border-radius: 999px; background: var(--gold); transition: width .6s ease; }
-    .bar-amt { width: 110px; font-size: .8rem; color: var(--muted); text-align: right; flex-shrink: 0; }
+    .bar-chart { display: flex; flex-direction: column; gap: .52rem; }
+    .bar-row   { display: flex; align-items: center; gap: .75rem; }
+    .bar-label { width: 120px; font-size: .81rem; flex-shrink: 0; text-align: right; }
+    .bar-track { flex: 1; background: var(--border); border-radius: 999px; height: 13px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 999px; background: var(--gold); transition: width .6s ease; }
+    .bar-amt   { width: 110px; font-size: .79rem; color: var(--muted); text-align: right; flex-shrink: 0; }
 
-    /* scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(60px);
+      background: var(--ink); color: #fff;
+      padding: .65rem 1.4rem; border-radius: 30px;
+      font-size: .85rem; font-weight: 500;
+      box-shadow: 0 8px 30px rgba(0,0,0,.25);
+      pointer-events: none; opacity: 0;
+      transition: opacity .3s, transform .3s;
+      white-space: nowrap; z-index: 9999;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
   </style>
 </head>
 <body>
 
-<!-- ════════════════ AUTH ════════════════ -->
+<!-- ════════════ AUTH ════════════ -->
 <div id="auth-screen">
   <div class="auth-card">
     <div class="auth-logo">BudgetBook</div>
@@ -266,6 +333,203 @@
     <input type="email" id="inp-email" placeholder="kalamamwatsuma@gmail.com" autocomplete="username"/>
     <label for="inp-pass">Password</label>
     <input type="password" id="inp-pass" placeholder="••••••••" autocomplete="current-password"/>
+    <div id="auth-error"></div>
+    <button class="btn-primary" onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- ════════════ APP ════════════ -->
+<div id="app">
+  <header>
+    <div class="header-brand">BudgetBook</div>
+    <div class="header-right">
+      <span class="header-user">Emmanuel Kalama</span>
+      <button id="btn-logout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- Date strip -->
+    <div class="date-strip">
+      <div class="date-heading">Daily Expenses — <span id="display-date"></span></div>
+      <input type="date" id="date-picker" onchange="changeDate(this.value)"/>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="summary-grid">
+      <div class="sum-card highlight">
+        <div class="sum-label">Total Spent Today</div>
+        <div class="sum-value" id="total-today">Kshs 0.00</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">Transactions</div>
+        <div class="sum-value" id="count-today">0</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">Largest Expense</div>
+        <div class="sum-value" id="largest-today">Kshs 0.00</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">Total This Month</div>
+        <div class="sum-value" id="total-month">Kshs 0.00</div>
+      </div>
+    </div>
+
+    <!-- Add Expense -->
+    <div class="section-header">
+      <div class="section-title">Add Expense</div>
+    </div>
+    <div class="add-form">
+      <div class="form-grid">
+        <div class="field">
+          <label>Amount (Kshs)</label>
+          <input type="number" id="inp-amount" placeholder="0.00" min="0" step="0.01"/>
+        </div>
+        <div class="field">
+          <label>Category</label>
+          <select id="inp-category">
+            <option value="Food">🍽 Food</option>
+            <option value="Transport">🚌 Transport</option>
+            <option value="Utilities">💡 Utilities</option>
+            <option value="Health">🏥 Health</option>
+            <option value="Shopping">🛍 Shopping</option>
+            <option value="Education">📚 Education</option>
+            <option value="Entertainment">🎉 Entertainment</option>
+            <option value="Rent">🏠 Rent</option>
+            <option value="Savings">💰 Savings</option>
+            <option value="Other">📌 Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Time</label>
+          <input type="time" id="inp-time"/>
+        </div>
+        <div class="field full">
+          <label>Description</label>
+          <input type="text" id="inp-desc" placeholder="What did you spend on?"/>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button class="btn-add" onclick="addExpense()">+ Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transactions table with scroll -->
+    <div class="section-header">
+      <div class="section-title">Today's Transactions</div>
+      <button class="btn-export" onclick="exportExcel('day')" title="Export today's expenses to Excel">
+        <!-- Excel-like icon -->
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8.1 18l1.8-3-1.8-3h1.5l1 1.9 1-1.9h1.5l-1.8 3 1.8 3h-1.5l-1-1.9-1 1.9H8.1z"/></svg>
+        Export Excel
+      </button>
+    </div>
+    <div class="table-outer">
+      <div class="table-scroll">
+        <table id="expense-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th style="text-align:right">Amount (Kshs)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="expense-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Category chart -->
+    <div class="chart-section">
+      <div class="section-header">
+        <div class="section-title">Spending by Category — Today</div>
+        <button class="btn-export" onclick="exportExcel('month')" title="Export full month to Excel">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8.1 18l1.8-3-1.8-3h1.5l1 1.9 1-1.9h1.5l-1.8 3 1.8 3h-1.5l-1-1.9-1 1.9H8.1z"/></svg>
+          Export Month
+        </button>
+      </div>
+      <div class="bar-chart" id="bar-chart"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<script>
+  // ── CREDENTIALS ──────────────────────────────────────────────────
+  const OWNER_EMAIL    = 'kalamamwatsuma@gmail.com';
+  const OWNER_PASSWORD = 'Manu@2026';
+  const SESSION_KEY    = 'budgetbook_session';
+  const DATA_KEY       = 'budgetbook_expenses';
+
+  // ── AUTH ─────────────────────────────────────────────────────────
+  function doLogin() {
+    const email = document.getElementById('inp-email').value.trim();
+    const pass  = document.getElementById('inp-pass').value;
+    const err   = document.getElementById('auth-error');
+    if (email !== OWNER_EMAIL || pass !== OWNER_PASSWORD) {
+      err.textContent = 'Invalid email or password. Please try again.'; return;
+    }
+    err.textContent = '';
+    localStorage.setItem(SESSION_KEY, '1');
+    showApp();
+  }
+
+  function doLogout() {
+    localStorage.removeItem(SESSION_KEY);
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('inp-pass').value = '';
+  }
+
+  // ── DATA ─────────────────────────────────────────────────────────
+  function loadAll()    { return JSON.parse(localStorage.getItem(DATA_KEY) || '[]'); }
+  function saveAll(arr) { localStorage.setItem(DATA_KEY, JSON.stringify(arr)); }
+
+  // ── STATE ────────────────────────────────────────────────────────
+  let currentDate = todayStr();
+
+  function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+  function formatDate(d) {
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-KE', {
+      weekday:'long', year:'numeric', month:'long', day:'numeric'
+    });
+  }
+
+  // ── SHOW APP ─────────────────────────────────────────────────────
+  function showApp() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('date-picker').value = currentDate;
+    document.getElementById('display-date').textContent = formatDate(currentDate);
+    const now = new Date();
+    document.getElementById('inp-time').value =
+      String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    render();
+  }
+
+  function changeDate(val) {
+    currentDate = val;
+    document.getElementById('display-date').textContent = formatDate(val);
+    render();
+  }
+
+  // ── ADD ──────────────────────────────────────────────────────────
+  function addExpense() {
+    const amount = parseFloat(document.getElementById('inp-amount').value);
+    const cat    = document.getElementById('inp-category').value;
+    const time   = document.getElementById('inp-time').value;
+    const desc   = document.getElementById('inp-desc').value.trim();
+    if (!amount || amount <= 0) { alert('Please enter a valid amount.'); return; }
+    if (!desc)                  { alert('Please enter a description.'); return; }
+    const all = loadAll();
+    all.push({ id: Date.now(), date: currentDate, time: time||'--:--', card"/>
     <div id="auth-error"></div>
     <button class="btn-primary" onclick="doLogin()">Sign In</button>
   </div>
